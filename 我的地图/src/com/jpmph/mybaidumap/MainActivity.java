@@ -6,11 +6,17 @@ import com.baidu.location.LocationClient;
 import com.baidu.location.LocationClientOption;
 import com.baidu.mapapi.SDKInitializer;
 import com.baidu.mapapi.map.BaiduMap;
+import com.baidu.mapapi.map.BitmapDescriptor;
+import com.baidu.mapapi.map.BitmapDescriptorFactory;
 import com.baidu.mapapi.map.MapStatusUpdate;
 import com.baidu.mapapi.map.MapStatusUpdateFactory;
 import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.MyLocationConfiguration;
 import com.baidu.mapapi.map.MyLocationData;
+import com.baidu.mapapi.map.MyLocationConfiguration.LocationMode;
 import com.baidu.mapapi.model.LatLng;
+import com.jpmph.mybaidumap.listener.MyOrientationListener;
+import com.jpmph.mybaidumap.listener.MyOrientationListener.OnOrientationListener;
 
 import android.os.Bundle;
 import android.app.Activity;
@@ -26,10 +32,15 @@ public class MainActivity extends Activity {
 	private boolean isFirstIn = true;
 	private LocationClient mLocationClient;
 	private MyLocationListener mLocationListener;
+	private BitmapDescriptor mBitmapDescriptor;// 自定位图标
 
 	// 当前位置经纬度
 	private double mLatitude;
 	private double mLongitude;
+
+	// 传感器相关
+	private MyOrientationListener mOrientationListener;
+	private float mCurrentX;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +82,21 @@ public class MainActivity extends Activity {
 		option.setScanSpan(1000);
 		mLocationClient.setLocOption(option);
 
+		// 初始化定位图标
+		mBitmapDescriptor = BitmapDescriptorFactory
+				.fromResource(R.drawable.marker);
+
+		mOrientationListener = new MyOrientationListener(this);
+		mOrientationListener
+				.setOnOrientationListener(new OnOrientationListener() {
+
+					@Override
+					public void onOrientationChange(float x) {
+						// TODO Auto-generated method stub
+						mCurrentX = x;
+					}
+				});
+
 	}
 
 	public class MyLocationListener implements BDLocationListener {
@@ -87,6 +113,11 @@ public class MainActivity extends Activity {
 			// 当前位置经纬度赋值
 			mLatitude = location.getLatitude();
 			mLongitude = location.getLongitude();
+
+			// 设置自定义定位图标
+			MyLocationConfiguration config = new MyLocationConfiguration(
+					LocationMode.NORMAL, true, mBitmapDescriptor);
+			mBaiduMap.setMyLocationConfigeration(config);
 
 			if (isFirstIn) {
 				LatLng latlng = new LatLng(location.getLatitude(),
@@ -151,6 +182,8 @@ public class MainActivity extends Activity {
 		if (!mLocationClient.isStarted()) {
 			mLocationClient.start();
 		}
+		// 开启方向传感器
+		mOrientationListener.startSonsor();
 
 	}
 
@@ -175,6 +208,8 @@ public class MainActivity extends Activity {
 		// 关闭定位
 		mBaiduMap.setMyLocationEnabled(false);
 		mLocationClient.stop();
+		// 关闭方向传感
+		mOrientationListener.stopSensor();
 	}
 
 	@Override
