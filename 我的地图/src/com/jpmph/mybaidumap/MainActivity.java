@@ -1,5 +1,7 @@
 package com.jpmph.mybaidumap;
 
+import java.util.ArrayList;
+import java.util.List;
 
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
@@ -12,13 +14,21 @@ import com.baidu.mapapi.map.BitmapDescriptorFactory;
 import com.baidu.mapapi.map.MapStatusUpdate;
 import com.baidu.mapapi.map.MapStatusUpdateFactory;
 import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.Marker;
+import com.baidu.mapapi.map.MarkerOptions;
 import com.baidu.mapapi.map.MyLocationConfiguration;
 import com.baidu.mapapi.map.MyLocationData;
 import com.baidu.mapapi.map.MyLocationConfiguration.LocationMode;
+import com.baidu.mapapi.map.OverlayOptions;
 import com.baidu.mapapi.model.LatLng;
+import com.baidu.mapapi.search.poi.OnGetPoiSearchResultListener;
 import com.baidu.mapapi.search.poi.PoiCitySearchOption;
+import com.baidu.mapapi.search.poi.PoiDetailResult;
 import com.baidu.mapapi.search.poi.PoiNearbySearchOption;
+import com.baidu.mapapi.search.poi.PoiResult;
 import com.baidu.mapapi.search.poi.PoiSearch;
+import com.baidu.mapapi.search.poi.PoiSortType;
+import com.jpmph.mybaidumap.bean.SearchBean;
 import com.jpmph.mybaidumap.listener.MyOrientationListener;
 import com.jpmph.mybaidumap.listener.MyOrientationListener.OnOrientationListener;
 
@@ -26,65 +36,176 @@ import android.os.Bundle;
 import android.app.Activity;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.EditText;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements OnClickListener {
 
 	private BaiduMap mBaiduMap;
 	private MapView mMapView;
 
-	// ¶¨Î»Ïà¹Ø×é¼ş
+	// å®šä½ç›¸å…³
 	private boolean isFirstIn = true;
 	private LocationClient mLocationClient;
 	private MyLocationListener mLocationListener;
-	private BitmapDescriptor mBitmapDescriptor;// ×Ô¶¨Î»Í¼±ê
+	private BitmapDescriptor mBitmapDescriptor;// ï¿½Ô¶ï¿½Î»Í¼ï¿½ï¿½
 
-	// µ±Ç°Î»ÖÃ¾­Î³¶È
+	// å®šä½æ—¶çš„ç»çº¬åº¦
 	private double mLatitude;
 	private double mLongitude;
 
-	// ´«¸ĞÆ÷Ïà¹Ø
+	//ä¼ æ„Ÿå™¨æ§ä»¶
 	private MyOrientationListener mOrientationListener;
 	private float mCurrentX;
-	
-	//ËÑË÷Ïà¹Øpoi
+
+	// æœç´¢æŸ¥æ‰¾poi
 	private PoiSearch mPoiSearch;
 	private PoiNearbySearchOption mNearbySearch;
 	private PoiCitySearchOption mCitySearch;
-	
+	private EditText mEdtSearch;
+	private Button mBtnSearch;
+
+	private List<SearchBean> list;
+	private SearchBean mSearchBean;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		// ÔÚÊ¹ÓÃSDK¸÷×é¼şÖ®Ç°³õÊ¼»¯contextĞÅÏ¢£¬´«ÈëApplicationContext
-		// ×¢Òâ¸Ã·½·¨ÒªÔÙsetContentView·½·¨Ö®Ç°ÊµÏÖ
+		// åœ¨ä½¿ç”¨SDKå„ç»„ä»¶ä¹‹å‰åˆå§‹åŒ–contextä¿¡æ¯ï¼Œä¼ å…¥ApplicationContext
+		// æ³¨æ„è¯¥æ–¹æ³•è¦å†setContentViewæ–¹æ³•ä¹‹å‰å®ç°
 		SDKInitializer.initialize(getApplicationContext());
 		setContentView(R.layout.activity_main);
 
-		// ³õÊ¼»¯¿Ø¼ş(MapView,BaiduMap)
+		// åˆå§‹åŒ–æ§ä»¶(MapView,BaiduMap)
 		initView();
-		// ³õÊ¼»¯¶¨Î»×é¼ş
+		// åˆå§‹åŒ–å®šä½
 		initLocation();
 
 	}
 
 	/**
-	 * ³õÊ¼»¯ÊÓÍ¼£¬¿Ø¼ş
+	 *åˆå§‹åŒ–æ§ä»¶
 	 */
 	private void initView() {
+
+		mEdtSearch = (EditText) findViewById(R.id.edt_search);
+		mBtnSearch = (Button) findViewById(R.id.btn_search);
+
 		mMapView = (MapView) findViewById(R.id.mapView);
 		mBaiduMap = mMapView.getMap();
 		MapStatusUpdate msu = MapStatusUpdateFactory.zoomTo(15f);
+		// poiå®ä¾‹åŒ–
+		mPoiSearch = PoiSearch.newInstance();
+		mPoiSearch
+				.setOnGetPoiSearchResultListener(mOnGetPoiSearchResultListener);
+		mBtnSearch.setOnClickListener(this);
+	}
+
+	@Override
+	public void onClick(View v) {
+		// TODO Auto-generated method stub
+		switch (v.getId()) {
+		case R.id.btn_search:
+			poiNearbySearch();
+			break;
+
+		default:
+			break;
+		}
+
 	}
 
 	/**
-	 * ³õÊ¼»¯¶¨Î»×é¼ş
+	 * å‘¨è¾¹æœç´¢
+	 */
+	private void poiNearbySearch() {
+		LatLng latLng = new LatLng(mLatitude, mLongitude);
+		mNearbySearch = new PoiNearbySearchOption() {
+		}//
+		.keyword(mEdtSearch.getText().toString()).location(latLng)//
+				.pageCapacity(15)//
+				.pageNum(0)//
+				.radius(10000)//
+				.sortType(PoiSortType.distance_from_near_to_far);
+		mPoiSearch.searchNearby(mNearbySearch);
+	}
+
+	/**
+	 * åŸå¸‚æœç´¢
+	 */
+	private void poiCitySearch() {
+		mCitySearch = new PoiCitySearchOption() {
+		}//
+		.city("")//
+				.keyword(mEdtSearch.getText().toString())//
+				.pageCapacity(15)//
+				.pageNum(0);
+
+		mPoiSearch.searchInCity(mCitySearch);
+	}
+
+	OnGetPoiSearchResultListener mOnGetPoiSearchResultListener = new OnGetPoiSearchResultListener() {
+
+		@Override
+		public void onGetPoiResult(PoiResult result) {
+			list = new ArrayList<SearchBean>();
+			for (int i = 0; i < result.getAllPoi().size(); i++) {
+				mSearchBean = new SearchBean();
+				mSearchBean.setAddress(result.getAllPoi().get(i).address);
+				mSearchBean
+						.setLatitude(result.getAllPoi().get(i).location.latitude);
+				mSearchBean
+						.setLontitude(result.getAllPoi().get(i).location.longitude);
+				mSearchBean.setName(result.getAllPoi().get(i).name);
+				list.add(mSearchBean);
+			}
+			addMarker(list);
+		}
+
+		@Override
+		public void onGetPoiDetailResult(PoiDetailResult arg0) {
+			// TODO Auto-generated method stub
+
+		}
+	};
+
+	/**
+	 * æ·»åŠ è¦†ç›–ç‰©
+	 */
+	private void addMarker(List<SearchBean> info) {
+		mBaiduMap.clear();
+		Marker marker = null;
+		LatLng latLng = null;
+		OverlayOptions overlayOptions = null;
+		BitmapDescriptor markerIcon = BitmapDescriptorFactory
+				.fromResource(R.drawable.icon_mark99);
+
+		for (SearchBean infos : info) {
+			latLng = new LatLng(infos.getLatitude(), infos.getLontitude());
+			overlayOptions = new MarkerOptions()//
+					.position(latLng)//
+					.icon(markerIcon)//
+					.zIndex(5);
+			marker=(Marker) mBaiduMap.addOverlay(overlayOptions);
+			Bundle bundle=new Bundle();
+			bundle.putSerializable("info", infos);
+			marker.setExtraInfo(bundle);
+		}
+		MapStatusUpdate msu=MapStatusUpdateFactory.newLatLng(latLng);
+		mBaiduMap.animateMapStatus(msu);
+	}
+
+	/**
+	 * åˆå§‹åŒ–å®šä½
 	 */
 	private void initLocation() {
 		mLocationClient = new LocationClient(MainActivity.this);
 		mLocationListener = new MyLocationListener();
-		// ×¢²á
+		//æ³¨å†Œ
 		mLocationClient.registerLocationListener(mLocationListener);
-		// ²ÎÊıÉè¶¨
+		// å‚æ•°
 		LocationClientOption option = new LocationClientOption();
 		option.setCoorType("bd09ll");
 		option.setOpenGps(true);
@@ -92,7 +213,7 @@ public class MainActivity extends Activity {
 		option.setScanSpan(1000);
 		mLocationClient.setLocOption(option);
 
-		// ³õÊ¼»¯¶¨Î»Í¼±ê
+		//å®šä½çš„å›¾æ ‡
 		mBitmapDescriptor = BitmapDescriptorFactory
 				.fromResource(R.drawable.marker);
 
@@ -120,11 +241,11 @@ public class MainActivity extends Activity {
 					.longitude(location.getLongitude())//
 					.build();
 			mBaiduMap.setMyLocationData(data);
-			// µ±Ç°Î»ÖÃ¾­Î³¶È¸³Öµ
+			//èµ‹å€¼ç»çº¬åº¦
 			mLatitude = location.getLatitude();
 			mLongitude = location.getLongitude();
 
-			// ÉèÖÃ×Ô¶¨Òå¶¨Î»Í¼±ê
+			// è‡ªå®šä¹‰å®šä½å›¾æ ‡
 			MyLocationConfiguration config = new MyLocationConfiguration(
 					LocationMode.NORMAL, true, mBitmapDescriptor);
 			mBaiduMap.setMyLocationConfigeration(config);
@@ -153,26 +274,26 @@ public class MainActivity extends Activity {
 		// TODO Auto-generated method stub
 		switch (item.getItemId()) {
 		case R.id.id_map_common:
-			// ÉèÖÃÆÕÍ¨µØÍ¼
+			// è®¾ç½®æ™®é€šè§†å›¾
 			mBaiduMap.setMapType(BaiduMap.MAP_TYPE_NORMAL);
 			break;
 		case R.id.id_map_site:
-			// ÉèÖÃÎÀĞÇµØÍ¼
+			//è®¾ç½®å«æ˜Ÿè§†å›¾
 			mBaiduMap.setMapType(BaiduMap.MAP_TYPE_SATELLITE);
 			break;
 		case R.id.id_map_traffic:
 
-			// ÉèÖÃÊµÊ±½»Í¨
+			// è®¾ç½®å®æ—¶äº¤é€š
 			if (mBaiduMap.isTrafficEnabled()) {
 				mBaiduMap.setTrafficEnabled(false);
-				item.setTitle("ÊµÊ±½»Í¨(off)");
+				item.setTitle("å®æ—¶äº¤é€š(off)");
 			} else {
 				mBaiduMap.setTrafficEnabled(true);
-				item.setTitle("ÊµÊ±½»Í¨(on)");
+				item.setTitle("å®æ—¶äº¤é€š(on)");
 			}
 			break;
 		case R.id.id_map_mylocation:
-			// ÏÔÊ¾ÎÒµÄÎ»ÖÃ
+			//å®šä¹‰æˆ‘çš„ä½ç½®
 			LatLng latLng = new LatLng(mLatitude, mLongitude);
 			MapStatusUpdate msu = MapStatusUpdateFactory.newLatLng(latLng);
 			mBaiduMap.animateMapStatus(msu);
@@ -192,7 +313,7 @@ public class MainActivity extends Activity {
 		if (!mLocationClient.isStarted()) {
 			mLocationClient.start();
 		}
-		// ¿ªÆô·½Ïò´«¸ĞÆ÷
+		// å¼€å¯æ–¹å‘ä¼ æ„Ÿå™¨
 		mOrientationListener.startSonsor();
 
 	}
@@ -215,10 +336,10 @@ public class MainActivity extends Activity {
 	protected void onStop() {
 		// TODO Auto-generated method stub
 		super.onStop();
-		// ¹Ø±Õ¶¨Î»
+		//å…³é—­å®šä½
 		mBaiduMap.setMyLocationEnabled(false);
 		mLocationClient.stop();
-		// ¹Ø±Õ·½Ïò´«¸Ğ
+		//å…³é—­æ–¹å‘ä¼ æ„Ÿå™¨
 		mOrientationListener.stopSensor();
 	}
 
