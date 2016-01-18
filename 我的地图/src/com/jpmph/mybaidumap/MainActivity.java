@@ -1,5 +1,6 @@
 package com.jpmph.mybaidumap;
 
+
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
 import com.baidu.location.LocationClient;
@@ -15,6 +16,9 @@ import com.baidu.mapapi.map.MyLocationConfiguration;
 import com.baidu.mapapi.map.MyLocationData;
 import com.baidu.mapapi.map.MyLocationConfiguration.LocationMode;
 import com.baidu.mapapi.model.LatLng;
+import com.baidu.mapapi.search.poi.PoiCitySearchOption;
+import com.baidu.mapapi.search.poi.PoiNearbySearchOption;
+import com.baidu.mapapi.search.poi.PoiSearch;
 import com.jpmph.mybaidumap.listener.MyOrientationListener;
 import com.jpmph.mybaidumap.listener.MyOrientationListener.OnOrientationListener;
 
@@ -41,6 +45,12 @@ public class MainActivity extends Activity {
 	// 传感器相关
 	private MyOrientationListener mOrientationListener;
 	private float mCurrentX;
+	
+	//搜索相关poi
+	private PoiSearch mPoiSearch;
+	private PoiNearbySearchOption mNearbySearch;
+	private PoiCitySearchOption mCitySearch;
+	
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
